@@ -1,0 +1,58 @@
+{
+  "__schema__": 1,
+  "data": {
+    "w": 16,
+    "h": 16,
+    "v_walls": [
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true]
+    ],
+    "h_walls": [
+      [true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true],
+      [true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true]
+    ],
+    "entities": [
+      {
+        "id": "e_player",
+        "name": "Player",
+        "components": {
+          "name": {"text": "Player"},
+          "transform": {"x": 1.5, "y": 1.5, "angle": 0, "scale": 1, "parent_id": null},
+          "collider": {"shape": "circle", "radius": 0.2, "w": 0.5, "h": 0.5, "offset_x": 0, "offset_y": 0, "is_static": false},
+          "camera": {"fov": 110, "effects_preset": "horror_default", "pitch_min": -30, "pitch_max": 10, "height": 0.5, "internal_w": 240, "internal_h": 150},
+          "sprite2d": {"kind": "camera", "color": [240, 80, 80]},
+          "script": {"blueprint": "player_controller", "enabled": true, "vars": {"speed": 2.5}}
+        }
+      }
+    ],
+    "meta": {"exit_cell": [15, 15]}
+  }
+}

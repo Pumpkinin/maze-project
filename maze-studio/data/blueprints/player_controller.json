@@ -1,0 +1,22 @@
+{
+  "__schema__": 1,
+  "data": {
+    "id": "player_controller",
+    "vars": {"speed": 2.5},
+    "nodes": [
+      {"id": "tick", "type": "OnTick", "params": {}, "pos": [220, 60]},
+      {"id": "fwd", "type": "OnInput", "params": {"action": "move_forward"}, "pos": [220, 110]},
+      {"id": "str", "type": "OnInput", "params": {"action": "strafe_right"}, "pos": [220, 150]},
+      {"id": "back", "type": "OnInput", "params": {"action": "move_back"}, "pos": [220, 190]},
+      {"id": "strL", "type": "OnInput", "params": {"action": "strafe_left"}, "pos": [220, 230]},
+      {"id": "move", "type": "MoveRelative", "params": {"speed_var": "speed"}, "pos": [420, 80]}
+    ],
+    "edges": [
+      {"from_id": "tick", "from_pin": "out", "to_id": "move", "to_pin": "in"},
+      {"from_id": "fwd", "from_pin": "value", "to_id": "move", "to_pin": "fwd"},
+      {"from_id": "str", "from_pin": "value", "to_id": "move", "to_pin": "str"},
+      {"from_id": "back", "from_pin": "value", "to_id": "move", "to_pin": "back"},
+      {"from_id": "strL", "from_pin": "value", "to_id": "move", "to_pin": "strL"}
+    ]
+  }
+}

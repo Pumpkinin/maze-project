@@ -1,0 +1,8 @@
+{
+  "__schema__": 1,
+  "data": {
+    "effects": [
+      {"type": "fog", "fog_start": 1.0, "fog_end": 15.0, "fog_max_alpha": 200}
+    ]
+  }
+}

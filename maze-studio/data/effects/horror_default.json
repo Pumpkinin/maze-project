@@ -1,0 +1,12 @@
+{
+  "__schema__": 1,
+  "data": {
+    "effects": [
+      {"type": "fog", "fog_start": 0.8, "fog_end": 12.0, "fog_max_alpha": 230},
+      {"type": "darken", "darken_start": 3.0, "darken_end": 30.0, "darken_max": 1.0},
+      {"type": "scanlines", "min_alpha": 8, "max_alpha": 28},
+      {"type": "vignette", "strength": 110},
+      {"type": "bob", "freq": 9.0, "amp_x": 1.0, "amp_y": 3.0}
+    ]
+  }
+}

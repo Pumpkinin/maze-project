@@ -1,0 +1,19 @@
+{
+  "__schema__": 1,
+  "data": {
+    "contexts": {
+      "gameplay": {
+        "actions": {
+          "move_forward": {"label": "Вперёд", "type": "axis", "bindings": ["scan:26", "scan:82"]},
+          "move_back":    {"label": "Назад",  "type": "axis", "bindings": ["scan:22", "scan:81"]},
+          "strafe_left":  {"label": "Влево",  "type": "axis", "bindings": ["scan:4", "scan:80"]},
+          "strafe_right": {"label": "Вправо", "type": "axis", "bindings": ["scan:7", "scan:79"]},
+          "interact":     {"label": "E",      "type": "button", "bindings": ["scan:8", "mouse:1"]},
+          "pause":        {"label": "Esc",    "type": "button", "bindings": ["scan:41"]}
+        }
+      }
+    },
+    "context_stack": ["gameplay"],
+    "default_context": "gameplay"
+  }
+}
