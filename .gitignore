@@ -21,7 +21,9 @@ env/
 .DS_Store
 Thumbs.db
 
-# Прочее
+# Локальные файлы
+apply_session_1.sh
+raycast_game.txt
 *.bak
 *.zip
 *.log

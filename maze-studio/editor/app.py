@@ -247,6 +247,8 @@ class EditorApp:
             return
 
         for e in events:
+            if self.build_panel.handle_event(e):
+                continue
             if e.type == pygame.QUIT:
                 self.running = False
             elif e.type == pygame.VIDEORESIZE:

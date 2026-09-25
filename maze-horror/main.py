@@ -14,7 +14,6 @@ def _bootstrap_path():
     В режиме PyInstaller — из sys._MEIPASS.
     """
     if getattr(sys, "frozen", False):
-        # PyInstaller: всё распаковано в sys._MEIPASS
         base = sys._MEIPASS
         candidates = [
             os.path.join(base, "maze-studio"),

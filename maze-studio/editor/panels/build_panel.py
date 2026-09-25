@@ -15,7 +15,7 @@ from ui import skin
 
 
 class BuildPanel:
-    """Окно компиляции. Открывается по кнопке 'Build' в тулбаре."""
+    """Окно компиляции. Открывается по кнопке 'Build' в тулбаре (или F6)."""
 
     def __init__(self, root):
         self.root = root
@@ -55,10 +55,10 @@ class BuildPanel:
         if self.running:
             return
         if not shutil.which("pyinstaller"):
-            self.log.append("✗ pyinstaller не найден. Установи: pip install pyinstaller")
+            self._log("✗ pyinstaller не найден. Установи: pip install pyinstaller")
             return
         self.running = True
-        self.log.append("→ Запуск сборки...")
+        self._log("→ Запуск сборки...")
         self.status = "Сборка..."
         self._thread = threading.Thread(target=self._build_worker, daemon=True)
         self._thread.start()
@@ -83,12 +83,9 @@ class BuildPanel:
                 "--distpath", os.path.join(horror, "dist"),
                 "--workpath", os.path.join(horror, "build"),
                 "--specpath", os.path.join(horror, "build"),
-                # движок и core из студии
                 "--add-data", f"{os.path.join(studio, 'engine')}{sep}engine",
                 "--add-data", f"{os.path.join(studio, 'core')}{sep}core",
-                # данные игры
                 "--add-data", f"{os.path.join(horror, 'data')}{sep}data",
-                # исходники игры
                 "--add-data", f"{os.path.join(horror, 'game')}{sep}game",
                 "--paths", studio,
                 "--paths", horror,
@@ -120,6 +117,41 @@ class BuildPanel:
         self.log.append(line)
         if len(self.log) > 200:
             self.log = self.log[-200:]
+
+    # ─── обработка событий (вызывается из EditorApp.handle_events) ──
+    def handle_event(self, e):
+        """Возвращает True, если событие поглощено панелью."""
+        if not self.visible:
+            return False
+        if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
+            self.visible = False
+            return True
+        if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+            if self.on_click(e.pos):
+                return True
+        return False
+
+    def on_click(self, pos):
+        """Обработка клика. Возвращает True, если клик поглощён."""
+        if not self.visible:
+            return False
+        btn_w, btn_h = 120, 28
+        build_rect = pygame.Rect(self.rect.right - 270,
+                                 self.rect.bottom - 40, btn_w, btn_h)
+        close_rect = pygame.Rect(self.rect.right - 140,
+                                 self.rect.bottom - 40, btn_w, btn_h)
+        if build_rect.collidepoint(pos) and not self.running:
+            self.start_build()
+            return True
+        if close_rect.collidepoint(pos):
+            self.visible = False
+            return True
+        if self.rect.collidepoint(pos):
+            return True
+        return False
+
+    def _close(self):
+        self.visible = False
 
     # ─── отрисовка ──────────────────────────────────────────
     def draw(self, surface, ui):
@@ -161,9 +193,8 @@ class BuildPanel:
         hover_build = build_rect.collidepoint(ui.mouse_pos)
         hover_close = close_rect.collidepoint(ui.mouse_pos)
 
-        color_build = (skin.ACCENT if not self.running else (70, 70, 78))
-        if hover_build and not self.running:
-            color_build = skin.ACCENT_HOVER
+        color_build = (skin.ACCENT_HOVER if (hover_build and not self.running)
+                       else (skin.ACCENT if not self.running else (70, 70, 78)))
         pygame.draw.rect(surface, color_build, build_rect, border_radius=4)
         pygame.draw.rect(surface, skin.PANEL_BORDER, build_rect, 1, border_radius=4)
         label = "Сборка..." if self.running else "Собрать"
@@ -175,17 +206,3 @@ class BuildPanel:
         pygame.draw.rect(surface, skin.PANEL_BORDER, close_rect, 1, border_radius=4)
         t2 = ui.skin.render("Закрыть", skin.TEXT)
         surface.blit(t2, t2.get_rect(center=close_rect.center))
-
-        # клики
-        if ui.mouse_released:
-            if hover_build and not self.running:
-                self.start_build()
-            elif hover_close:
-                self.visible = False
-
-        # Esc закрывает
-        for e in pygame.event.get(pygame.KEYDOWN):
-            if e.key == pygame.K_ESCAPE:
-                self.visible = False
-            else:
-                pygame.event.post(e)
