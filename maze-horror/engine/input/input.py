@@ -55,9 +55,8 @@ class Input:
 
     @staticmethod
     def load(path):
-        with open(path, "r", encoding="utf-8") as f:
-            return Input.from_dict(json.load(f))
-
+        from core.serialize import load_json
+        return Input.from_dict(load_json(path))
     # ─── кадр ───────────────────────────────────────────────
     def begin_frame(self, events):
         self._raw_pressed_scans.clear()

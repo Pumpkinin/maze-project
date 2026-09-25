@@ -45,19 +45,12 @@ def compile_blueprint(graph_dict):
         return outs
 
     def run(ctx):
-        # сбрасываем временные поля предыдущего кадра
         ctx.vars.pop("_delta", None)
-        # один visited на весь кадр — узел не выполнится дважды,
-        # даже если к нему ведут пути от нескольких event-узлов
-        visited = set()
         for eid in event_ids:
-            if eid in visited:
-                continue
             inst = insts[eid]
             outs = inst.evaluate(ctx, {})
-            visited.add(eid)
             for from_pin, to_id, to_pin in out_map.get(eid, []):
                 if from_pin in outs and outs[from_pin]:
-                    eval_node(ctx, to_id, {to_pin: outs[from_pin]}, visited)
+                    eval_node(ctx, to_id, {to_pin: outs[from_pin]}, set())
 
     return run

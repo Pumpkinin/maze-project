@@ -165,26 +165,25 @@ class Log(Node):
 @register
 class MoveRelative(Node):
     type_name = "MoveRelative"
-    inputs = {"in": "flow", "fwd": "float", "str": "float"}
+    inputs = {"in": "flow", "fwd": "float", "str": "float", "back": "float", "strL": "float"}
     outputs = {"out": "flow", "wish_speed": "float"}
 
     def evaluate(self, ctx, in_vals):
-        if not in_vals.get("in"):
-            return {"out": False, "wish_speed": 0.0}
         fwd = float(in_vals.get("fwd", 0.0))
-        str_ = float(in_vals.get("str", 0.0))
+        strR = float(in_vals.get("str", 0.0))
+        back = float(in_vals.get("back", 0.0))
+        strL = float(in_vals.get("strL", 0.0))
         speed = float(ctx.vars.get(self.params.get("speed_var", "speed"), 2.5))
         t = ctx.entity.get("transform")
         if t is None:
             return {"out": False}
         dt = ctx.dt
         ca, sa = math.cos(t.angle), math.sin(t.angle)
-        dx = ca * fwd * speed * dt + sa * str_ * speed * dt
-        dy = sa * fwd * speed * dt - ca * str_ * speed * dt
-        # сохраняем delta для PhysicsSystem
-        ctx.vars["_delta"] = (dx, dy)
+        dx = ca * fwd * speed * dt - sa * strR * speed * dt - ca * back * speed * dt + sa * strL * speed * dt
+        dy = sa * fwd * speed * dt + ca * strR * speed * dt - sa * back * speed * dt - ca * strL * speed * dt
+        prev = ctx.vars.get("_delta", (0.0, 0.0))
+        ctx.vars["_delta"] = (prev[0] + dx, prev[1] + dy)
         ws = math.hypot(dx, dy) / dt if dt > 0 else 0.0
-        ctx.vars["_wish_speed"] = ws
         return {"out": True, "wish_speed": ws}
 
 
