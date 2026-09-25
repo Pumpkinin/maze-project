@@ -4,3 +4,5 @@ __pycache__/
 *.bak
 .DS_Store
 *.zip
+apply_session_1.sh
+raycast_game.txt
