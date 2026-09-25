@@ -1,8 +1,27 @@
+# Python
 __pycache__/
 *.pyc
 *.pyo
-*.bak
+*.pyd
+.Python
+build/
+dist/
+*.spec
+*.egg-info/
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Прочее
+*.bak
 *.zip
-apply_session_1.sh
-raycast_game.txt
+*.log

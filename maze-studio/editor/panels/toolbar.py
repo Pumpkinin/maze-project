@@ -52,6 +52,8 @@ class Toolbar:
         add("Exit",   lambda: self.app.set_tool("exit"),   "exit")
         x += 10
         add("Play", self.app.toggle_preview)
+        x += 10
+        add("Build", self.app.build_panel.toggle)
 
         for b in self.buttons:
             b.active = (b.tool == self.app.tool)
