@@ -18,7 +18,14 @@ class BuildPanel:
     """Окно компиляции. Открывается по кнопке 'Build' в тулбаре (или F6)."""
 
     def __init__(self, root):
-        self.root = root
+        # root — обычно .../maze-studio, но нам нужен корень репозитория,
+        # где лежат обе папки: maze-studio/ и maze-horror/
+        if os.path.isdir(os.path.join(root, "maze-horror")):
+            self.root = root
+        elif os.path.isdir(os.path.join(os.path.dirname(root), "maze-horror")):
+            self.root = os.path.dirname(root)
+        else:
+            self.root = root
         self.visible = False
         self.rect = pygame.Rect(0, 0, 560, 320)
         self.log = []
@@ -39,10 +46,13 @@ class BuildPanel:
 
     def _detect_env(self):
         system = platform.system()
+        horror_main = os.path.join(self.root, "maze-horror", "main.py")
         self.log = [
             f"ОС: {system} ({platform.release()})",
             f"Python: {sys.version.split()[0]}",
             f"PyInstaller: {'найден' if shutil.which('pyinstaller') else 'НЕ найден'}",
+            f"Корень проекта: {self.root}",
+            f"main.py игры: {'OK' if os.path.isfile(horror_main) else 'НЕ НАЙДЕН'}",
             "",
         ]
         if not shutil.which("pyinstaller"):
@@ -69,7 +79,7 @@ class BuildPanel:
             horror = os.path.join(self.root, "maze-horror")
             entry = os.path.join(horror, "main.py")
             if not os.path.isfile(entry):
-                self._log("✗ Не найден maze-horror/main.py")
+                self._log(f"✗ Не найден {entry}")
                 return
 
             sep = ";" if platform.system() == "Windows" else ":"
