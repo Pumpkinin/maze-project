@@ -34,7 +34,7 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
     fi
 fi
 
-# ─── 2. Создать ветку session-1 ──────────────────────────────
+# ─── 2. Создать/переключиться на ветку session-1 ─────────────
 if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
     echo "→ Ветка $BRANCH уже существует, переключаюсь."
     git checkout "$BRANCH"
@@ -67,7 +67,6 @@ def _bootstrap_path():
     В режиме PyInstaller — из sys._MEIPASS.
     """
     if getattr(sys, "frozen", False):
-        # PyInstaller: всё распаковано в sys._MEIPASS
         base = sys._MEIPASS
         candidates = [
             os.path.join(base, "maze-studio"),
@@ -121,13 +120,15 @@ env/
 .DS_Store
 Thumbs.db
 
-# Прочее
+# Локальные файлы
+apply_session_1.sh
+raycast_game.txt
 *.bak
 *.zip
 *.log
 GIEOF
 
-# ─── 6. Добавить панель компиляции в редактор ────────────────
+# ─── 6. Панель компиляции (build_panel.py) ───────────────────
 echo "→ Создаю maze-studio/editor/panels/build_panel.py"
 cat > maze-studio/editor/panels/build_panel.py << 'PYEOF'
 """Панель компиляции игры в standalone-сборку через PyInstaller.
@@ -147,7 +148,7 @@ from ui import skin
 
 
 class BuildPanel:
-    """Окно компиляции. Открывается по кнопке 'Build' в тулбаре."""
+    """Окно компиляции. Открывается по кнопке 'Build' в тулбаре (или F6)."""
 
     def __init__(self, root):
         self.root = root
@@ -187,10 +188,10 @@ class BuildPanel:
         if self.running:
             return
         if not shutil.which("pyinstaller"):
-            self.log.append("✗ pyinstaller не найден. Установи: pip install pyinstaller")
+            self._log("✗ pyinstaller не найден. Установи: pip install pyinstaller")
             return
         self.running = True
-        self.log.append("→ Запуск сборки...")
+        self._log("→ Запуск сборки...")
         self.status = "Сборка..."
         self._thread = threading.Thread(target=self._build_worker, daemon=True)
         self._thread.start()
@@ -215,12 +216,9 @@ class BuildPanel:
                 "--distpath", os.path.join(horror, "dist"),
                 "--workpath", os.path.join(horror, "build"),
                 "--specpath", os.path.join(horror, "build"),
-                # движок и core из студии
                 "--add-data", f"{os.path.join(studio, 'engine')}{sep}engine",
                 "--add-data", f"{os.path.join(studio, 'core')}{sep}core",
-                # данные игры
                 "--add-data", f"{os.path.join(horror, 'data')}{sep}data",
-                # исходники игры
                 "--add-data", f"{os.path.join(horror, 'game')}{sep}game",
                 "--paths", studio,
                 "--paths", horror,
@@ -252,6 +250,41 @@ class BuildPanel:
         self.log.append(line)
         if len(self.log) > 200:
             self.log = self.log[-200:]
+
+    # ─── обработка событий (вызывается из EditorApp.handle_events) ──
+    def handle_event(self, e):
+        """Возвращает True, если событие поглощено панелью."""
+        if not self.visible:
+            return False
+        if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
+            self.visible = False
+            return True
+        if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+            if self.on_click(e.pos):
+                return True
+        return False
+
+    def on_click(self, pos):
+        """Обработка клика. Возвращает True, если клик поглощён."""
+        if not self.visible:
+            return False
+        btn_w, btn_h = 120, 28
+        build_rect = pygame.Rect(self.rect.right - 270,
+                                 self.rect.bottom - 40, btn_w, btn_h)
+        close_rect = pygame.Rect(self.rect.right - 140,
+                                 self.rect.bottom - 40, btn_w, btn_h)
+        if build_rect.collidepoint(pos) and not self.running:
+            self.start_build()
+            return True
+        if close_rect.collidepoint(pos):
+            self.visible = False
+            return True
+        if self.rect.collidepoint(pos):
+            return True
+        return False
+
+    def _close(self):
+        self.visible = False
 
     # ─── отрисовка ──────────────────────────────────────────
     def draw(self, surface, ui):
@@ -293,9 +326,8 @@ class BuildPanel:
         hover_build = build_rect.collidepoint(ui.mouse_pos)
         hover_close = close_rect.collidepoint(ui.mouse_pos)
 
-        color_build = (skin.ACCENT if not self.running else (70, 70, 78))
-        if hover_build and not self.running:
-            color_build = skin.ACCENT_HOVER
+        color_build = (skin.ACCENT_HOVER if (hover_build and not self.running)
+                       else (skin.ACCENT if not self.running else (70, 70, 78)))
         pygame.draw.rect(surface, color_build, build_rect, border_radius=4)
         pygame.draw.rect(surface, skin.PANEL_BORDER, build_rect, 1, border_radius=4)
         label = "Сборка..." if self.running else "Собрать"
@@ -307,31 +339,17 @@ class BuildPanel:
         pygame.draw.rect(surface, skin.PANEL_BORDER, close_rect, 1, border_radius=4)
         t2 = ui.skin.render("Закрыть", skin.TEXT)
         surface.blit(t2, t2.get_rect(center=close_rect.center))
-
-        # клики
-        if ui.mouse_released:
-            if hover_build and not self.running:
-                self.start_build()
-            elif hover_close:
-                self.visible = False
-
-        # Esc закрывает
-        for e in pygame.event.get(pygame.KEYDOWN):
-            if e.key == pygame.K_ESCAPE:
-                self.visible = False
-            else:
-                pygame.event.post(e)
 PYEOF
 
-# ─── 7. Подключить BuildPanel в editor/app.py ────────────────
+# ─── 7. Патчим editor/app.py ─────────────────────────────────
 echo "→ Встраиваю BuildPanel в editor/app.py"
-
-# 7.1 импорт
 python3 - << 'PYEOF'
-import re, pathlib
+import pathlib
+
 p = pathlib.Path("maze-studio/editor/app.py")
 src = p.read_text(encoding="utf-8")
 
+# 7.1 импорт
 if "from editor.panels.build_panel import BuildPanel" not in src:
     src = src.replace(
         "from editor.file_dialog import FileDialog",
@@ -339,16 +357,30 @@ if "from editor.panels.build_panel import BuildPanel" not in src:
         "from editor.panels.build_panel import BuildPanel",
     )
 
-# 7.2 инициализация в __init__ (после dialog = FileDialog())
+# 7.2 создание build_panel ДО Toolbar (иначе AttributeError)
+#     сначала убираем возможное старое создание после dialog
+src = src.replace(
+    "        self.dialog = FileDialog()\n"
+    "        self.build_panel = BuildPanel(ROOT)\n",
+    "        self.dialog = FileDialog()\n",
+)
+src = src.replace(
+    "        self.dialog = FileDialog()\n"
+    "        self.build_panel = BuildPanel(ROOT)\n",
+    "        self.dialog = FileDialog()\n",
+)
+#     теперь вставляем перед Toolbar
 if "self.build_panel = BuildPanel(ROOT)" not in src:
     src = src.replace(
-        "        self.dialog = FileDialog()\n",
-        "        self.dialog = FileDialog()\n"
-        "        self.build_panel = BuildPanel(ROOT)\n",
+        "        # Панели\n"
+        "        self.toolbar = Toolbar(self.rect_toolbar, self)\n",
+        "        # Панели\n"
+        "        self.build_panel = BuildPanel(ROOT)\n"
+        "        self.toolbar = Toolbar(self.rect_toolbar, self)\n",
     )
 
-# 7.3 обработка F6 — открыть панель сборки
-if "if e.key == pygame.K_F6:" not in src:
+# 7.3 F6 — открыть панель сборки
+if "pygame.K_F6" not in src:
     src = src.replace(
         "                if e.key == pygame.K_F5:\n"
         "                    self.toggle_preview()\n",
@@ -358,7 +390,16 @@ if "if e.key == pygame.K_F6:" not in src:
         "                    self.build_panel.toggle()\n",
     )
 
-# 7.4 отрисовка панели поверх всего в draw()
+# 7.4 обработка событий панели в начале цикла for e in events
+needle = "        for e in events:\n            if e.type == pygame.QUIT:\n"
+repl = ("        for e in events:\n"
+        "            if self.build_panel.handle_event(e):\n"
+        "                continue\n"
+        "            if e.type == pygame.QUIT:\n")
+if "self.build_panel.handle_event(e)" not in src and needle in src:
+    src = src.replace(needle, repl, 1)
+
+# 7.5 отрисовка панели поверх всего
 if "self.build_panel.draw(self.screen, self.ui)" not in src:
     src = src.replace(
         "        pygame.display.flip()\n\n"
@@ -376,6 +417,7 @@ PYEOF
 echo "→ Добавляю кнопку Build в тулбар"
 python3 - << 'PYEOF'
 import pathlib
+
 p = pathlib.Path("maze-studio/editor/panels/toolbar.py")
 src = p.read_text(encoding="utf-8")
 
@@ -410,7 +452,12 @@ if [ -f "sync.sh" ]; then
     git rm --quiet sync.sh 2>/dev/null || rm -f sync.sh
 fi
 
-# ─── 11. Коммит ──────────────────────────────────────────────
+# ─── 11. Подчистить пустые папки и __pycache__ ───────────────
+echo "→ Чищу пустые папки и __pycache__"
+find maze-horror -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+find maze-horror -type d -empty -delete 2>/dev/null || true
+
+# ─── 12. Коммит ──────────────────────────────────────────────
 echo "→ Коммичу изменения"
 git add -A
 git commit -m "session-1: убрано дублирование ядра, добавлена сборка через редактор
@@ -420,10 +467,12 @@ git commit -m "session-1: убрано дублирование ядра, доб
 - main.py игры настраивает sys.path под dev и PyInstaller
 - в редактор добавлена панель компиляции (F6 / кнопка Build)
 - сборка под текущую ОС через PyInstaller
+- BuildPanel создаётся до Toolbar (иначе AttributeError)
+- кнопки панели обрабатываются в handle_events, а не в draw
 - обновлён .gitignore
 - удалён sync.sh"
 
-# ─── 12. Push ────────────────────────────────────────────────
+# ─── 13. Push ────────────────────────────────────────────────
 echo "→ Пушу ветку $BRANCH в origin"
 git push -u origin "$BRANCH"
 

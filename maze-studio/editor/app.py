@@ -75,6 +75,7 @@ class EditorApp:
         self._recompute_layout()
 
         # Панели
+        self.build_panel = BuildPanel(ROOT)
         self.toolbar = Toolbar(self.rect_toolbar, self)
         self.viewport = Viewport(self.rect_view)
         self.hierarchy = HierarchyPanel(self.rect_left)
@@ -82,7 +83,6 @@ class EditorApp:
         self.browser = AssetBrowser(self.rect_left_bottom, ROOT)
         self.bp_editor = BlueprintEditor(self.rect_right_bottom)
         self.dialog = FileDialog()
-        self.build_panel = BuildPanel(ROOT)
 
         self.cam_drag = False
         self.cam_drag_start = (0, 0)
