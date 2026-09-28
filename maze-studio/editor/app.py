@@ -24,6 +24,7 @@ from editor.panels.inspector import InspectorPanel
 from editor.panels.asset_browser import AssetBrowser
 from editor.panels.blueprint_editor import BlueprintEditor
 from editor.file_dialog import FileDialog
+from editor.panels.build_panel import BuildPanel
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -74,6 +75,7 @@ class EditorApp:
         self._recompute_layout()
 
         # Панели
+        self.build_panel = BuildPanel(ROOT)
         self.toolbar = Toolbar(self.rect_toolbar, self)
         self.viewport = Viewport(self.rect_view)
         self.hierarchy = HierarchyPanel(self.rect_left)
@@ -245,6 +247,8 @@ class EditorApp:
             return
 
         for e in events:
+            if self.build_panel.handle_event(e):
+                continue
             if e.type == pygame.QUIT:
                 self.running = False
             elif e.type == pygame.VIDEORESIZE:
@@ -257,6 +261,8 @@ class EditorApp:
                         self.running = False
                 if e.key == pygame.K_F5:
                     self.toggle_preview()
+                if e.key == pygame.K_F6:
+                    self.build_panel.toggle()
                 if e.key == pygame.K_F11:
                     self._toggle_fullscreen()
                 if not self.preview_active:
@@ -382,6 +388,7 @@ class EditorApp:
                 "Сохранить как" if self.dialog.mode == "save" else "Открыть",
                 self.dialog.files, mode=self.dialog.mode,
                 filename=self.dialog.filename)
+        self.build_panel.draw(self.screen, self.ui)
         pygame.display.flip()
 
     def _save_blueprint(self, bp):
