@@ -4,10 +4,15 @@ from ui import skin
 
 
 class AssetBrowser:
-    def __init__(self, rect, root):
+    """Браузер ассетов текущего проекта (папка проекта/data/)."""
+
+    def __init__(self, rect, project_root):
         self.rect = pygame.Rect(rect)
-        self.root = root
+        self.project_root = project_root
         self.kind = "levels"
+
+    def set_project(self, project_root):
+        self.project_root = project_root
 
     def draw(self, surface, skin_obj, ui, on_pick=None):
         pygame.draw.rect(surface, skin.PANEL_BG, self.rect)
@@ -26,9 +31,9 @@ class AssetBrowser:
                 self.kind = k
             x += w + 4
 
-        d = os.path.join(self.root, "data", self.kind)
+        d = os.path.join(self.project_root or "", "data", self.kind)
         y = self.rect.y + 34
-        if os.path.isdir(d):
+        if self.project_root and os.path.isdir(d):
             for f in sorted(os.listdir(d)):
                 if not f.endswith(".json"):
                     continue
@@ -42,3 +47,7 @@ class AssetBrowser:
                 y += 18
                 if y > self.rect.bottom:
                     break
+        else:
+            surface.blit(skin_obj.render("Проект не открыт",
+                                         skin.TEXT_DIM),
+                         (self.rect.x + 10, self.rect.y + 40))

@@ -53,6 +53,9 @@ class Toolbar:
         x += 10
         add("Play", self.app.toggle_preview)
         x += 10
+        add("Project", self.app.action_open_project)
+        add("New Proj", self.app.action_new_project)
+        x += 10
         add("Build", self.app.build_panel.toggle)
 
         for b in self.buttons:

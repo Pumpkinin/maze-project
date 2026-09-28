@@ -25,8 +25,10 @@ from editor.panels.asset_browser import AssetBrowser
 from editor.panels.blueprint_editor import BlueprintEditor
 from editor.file_dialog import FileDialog
 from editor.panels.build_panel import BuildPanel
+from editor import config as editor_config
+from editor.project import Project
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ENGINE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 class EditorApp:
@@ -46,64 +48,111 @@ class EditorApp:
         self.tool = "select"
         self.history = UndoStack()
 
-        # Ввод — создаём ДО систем, чтобы InputSystem получил валидный объект
-        input_path = os.path.join(ROOT, "data", "input", "default.json")
+        # Корни: движок и проект.
+        self.engine_root = ENGINE_ROOT
+        self.engine_data_root = os.path.join(self.engine_root, "data")
+        self.project = None          # editor.project.Project | None
+        self.project_root = None
+
+        # Ввод — создаём ДО систем.
+        input_path = os.path.join(self.engine_data_root, "input", "default.json")
         try:
             self.input = Input.load(input_path)
         except Exception as e:
             print(f"[input] не удалось загрузить: {e}")
             self.input = Input()
 
-        # Сцена
+        # Сцена.
         self.scene = Scene(16, 16)
-        self.scene_path = os.path.join(ROOT, "data", "levels", "demo.json")
+        self.scene_path = None
         self._attach_default_systems()
 
-        # Реестры
-        self.assets = AssetRegistry(ROOT)
+        # Реестры ассетов (движка).
+        self.assets = AssetRegistry(self.engine_root)
         for k, sub in [("levels", "data/levels"), ("prefabs", "data/prefabs"),
                        ("blueprints", "data/blueprints"),
                        ("effects", "data/effects"),
                        ("input", "data/input")]:
             self.assets.scan(k, sub)
 
-        # Превью
+        # Превью.
         self.preview = None
         self.preview_surface = None
         self.preview_rect = pygame.Rect(0, 0, 320, 200)
         self.preview_active = False
         self._recompute_layout()
 
-        # Панели
-        self.build_panel = BuildPanel(ROOT)
+        # Панели. BuildPanel — до Toolbar (в тулбаре есть кнопка Build).
+        self.build_panel = BuildPanel(self.engine_root, self.project_root)
         self.toolbar = Toolbar(self.rect_toolbar, self)
         self.viewport = Viewport(self.rect_view)
         self.hierarchy = HierarchyPanel(self.rect_left)
         self.inspector = InspectorPanel(self.rect_right)
-        self.browser = AssetBrowser(self.rect_left_bottom, ROOT)
+        self.browser = AssetBrowser(self.rect_left_bottom, self.project_root)
         self.bp_editor = BlueprintEditor(self.rect_right_bottom)
         self.dialog = FileDialog()
+        # Диалог выбора проекта (отдельный режим).
+        self.project_dialog = {"mode": None, "files": [], "filename": ""}
 
         self.cam_drag = False
         self.cam_drag_start = (0, 0)
 
+        # Восстанавливаем последний проект из конфига.
+        self._restore_last_project()
+
+    # ─── проект ───────────────────────────────────────────
+    def _restore_last_project(self):
+        last = editor_config.get_last_project()
+        if last and os.path.isdir(last):
+            p = Project(last)
+            if p.is_valid():
+                self._set_project(p)
+                self.status = f"Проект: {p.name()}"
+                return
+        self.status = "Проект не открыт — New Proj / Project"
+
+    def _set_project(self, project):
+        self.project = project
+        self.project_root = project.root
+        self.browser.set_project(self.project_root)
+        self.build_panel.set_project(self.project_root)
+        editor_config.remember_project(self.project_root)
+
+    def action_open_project(self):
+        # Простейший ввод пути: используем file_picker только как UI,
+        # но по факту просим путь текстом в том же диалоге.
+        self.project_dialog = {
+            "mode": "open_project",
+            "files": editor_config.get_recent_projects(),
+            "filename": self.project_root or "",
+        }
+
+    def action_new_project(self):
+        self.project_dialog = {
+            "mode": "new_project",
+            "files": [],
+            "filename": os.path.join(self.engine_root, "..", "new-game"),
+        }
+
     # ─── системы ──────────────────────────────────────────
     def _attach_default_systems(self):
-        # Убираем старые (если есть)
         self.scene.systems = []
         self.scene.add_system(InputSystem(self.input))
         self.scene.add_system(ScriptSystem(self._load_blueprint))
         self.scene.add_system(PhysicsSystem())
 
     def _load_blueprint(self, name):
-        p = os.path.join(ROOT, "data", "blueprints", name + ".json")
-        if not os.path.isfile(p):
-            return None
-        try:
-            return load_json(p)
-        except Exception as e:
-            print(f"[bp] {name}: {e}")
-            return None
+        # Сначала — проект, потом — движок (как fallback для шаблонов).
+        for base in (self.project_root, self.engine_data_root):
+            if not base:
+                continue
+            p = os.path.join(base, "blueprints", name + ".json")
+            if os.path.isfile(p):
+                try:
+                    return load_json(p)
+                except Exception as e:
+                    print(f"[bp] {name}: {e}")
+        return None
 
     # ─── layout ───────────────────────────────────────────
     def _recompute_layout(self):
@@ -157,17 +206,27 @@ class EditorApp:
         self._attach_default_systems()
         self.preview = None
         self.history.clear()
+        self.scene_path = None
         self.status = "Новый уровень"
 
+    def _project_levels_dir(self):
+        if self.project_root:
+            return os.path.join(self.project_root, "data", "levels")
+        return os.path.join(self.engine_data_root, "levels")
+
     def action_open(self):
-        d = os.path.dirname(self.scene_path)
-        files = sorted(f for f in os.listdir(d) if f.endswith(".json"))
-        self.dialog.open_open(files, os.path.basename(self.scene_path))
+        d = self._project_levels_dir()
+        files = sorted(f for f in os.listdir(d)
+                       if f.endswith(".json")) if os.path.isdir(d) else []
+        self.dialog.open_open(files,
+                              os.path.basename(self.scene_path or "demo.json"))
 
     def action_save(self):
-        d = os.path.dirname(self.scene_path)
-        files = sorted(f for f in os.listdir(d) if f.endswith(".json"))
-        self.dialog.open_save(files, os.path.basename(self.scene_path))
+        d = self._project_levels_dir()
+        files = sorted(f for f in os.listdir(d)
+                       if f.endswith(".json")) if os.path.isdir(d) else []
+        self.dialog.open_save(files,
+                              os.path.basename(self.scene_path or "level.json"))
 
     def action_undo(self):
         self.history.undo()
@@ -178,23 +237,33 @@ class EditorApp:
         self.status = "Redo"
 
     def _do_save(self, name):
-        path = os.path.join(ROOT, "data", "levels", name)
+        if not self.project_root:
+            self.status = "Проект не открыт"
+            return
+        path = os.path.join(self.project_root, "data", "levels", name)
         save_json(path, self.scene.to_dict())
         self.scene_path = path
         self.status = f"Сохранено: {name}"
 
     def _do_open(self, name):
-        path = os.path.join(ROOT, "data", "levels", name)
-        try:
-            d = load_json(path)
-            self.scene = Scene.from_dict(d)
-            self._attach_default_systems()
-            self.scene_path = path
-            self.preview = None
-            self.history.clear()
-            self.status = f"Загружено: {name}"
-        except Exception as e:
-            self.status = f"Ошибка: {e}"
+        # Сначала ищем в проекте, потом в движке.
+        for base in (self.project_root, self.engine_data_root):
+            if not base:
+                continue
+            path = os.path.join(base, "levels", name)
+            if os.path.isfile(path):
+                try:
+                    d = load_json(path)
+                    self.scene = Scene.from_dict(d)
+                    self._attach_default_systems()
+                    self.scene_path = path
+                    self.preview = None
+                    self.history.clear()
+                    self.status = f"Загружено: {name}"
+                except Exception as e:
+                    self.status = f"Ошибка: {e}"
+                return
+        self.status = f"Не найдено: {name}"
 
     def toggle_preview(self):
         self.preview_active = not self.preview_active
@@ -214,8 +283,17 @@ class EditorApp:
     def _rebuild_preview(self):
         for e in self.scene.entities.values():
             if e.has("camera"):
-                preset = find_preset(ROOT, e.get("camera").effects_preset)
-                self.preview = Camera3D(e.get("camera"), preset)
+                # effects ищем в проекте, потом в движке.
+                preset = None
+                name = e.get("camera").effects_preset
+                for base in (self.project_root, self.engine_data_root):
+                    if not base:
+                        continue
+                    p = os.path.join(base, "effects", name + ".json")
+                    if os.path.isfile(p):
+                        preset = find_preset(base, name)
+                        break
+                self.preview = Camera3D(e.get("camera"), preset or {"effects": []})
                 self.preview.set_pitch(0.0)
                 return
         self.preview = None
@@ -224,6 +302,36 @@ class EditorApp:
     def handle_events(self, events):
         self.ui.begin_frame(events)
         self.input.begin_frame(events)
+
+        # Диалог выбора/создания проекта — отдельный, путь вводится текстом.
+        if self.project_dialog["mode"]:
+            action, name = self.ui.file_picker(
+                self.screen,
+                pygame.Rect((self.win_w - 560) // 2,
+                            (self.win_h - 360) // 2, 560, 360),
+                "Открыть проект" if self.project_dialog["mode"] == "open_project"
+                else "Новый проект",
+                self.project_dialog["files"], mode="save",
+                filename=self.project_dialog["filename"])
+            if action == "ok" and name:
+                name = os.path.expanduser(name)
+                if self.project_dialog["mode"] == "open_project":
+                    p = Project(name)
+                    if p.is_valid():
+                        self._set_project(p)
+                        self.status = f"Проект: {p.name()}"
+                    else:
+                        self.status = f"Нет data/ в {name}"
+                else:
+                    p = Project.create_from_templates(
+                        name, self.engine_data_root)
+                    self._set_project(p)
+                    self.status = f"Создан проект: {p.name()}"
+                self.project_dialog = {"mode": None, "files": [], "filename": ""}
+            elif action == "cancel":
+                self.project_dialog = {"mode": None, "files": [], "filename": ""}
+            self.ui.end_frame()
+            return
 
         if self.dialog.mode:
             action, name = self.ui.file_picker(
@@ -273,11 +381,16 @@ class EditorApp:
                     if e.key == pygame.K_5: self.set_tool("spawn")
                     if e.key == pygame.K_6: self.set_tool("exit")
                     ctrl = bool(e.mod & pygame.KMOD_CTRL)
+                    shift = bool(e.mod & pygame.KMOD_SHIFT)
                     if ctrl and e.key == pygame.K_s: self.action_save()
-                    if ctrl and e.key == pygame.K_o: self.action_open()
+                    if ctrl and e.key == pygame.K_o and not shift: self.action_open()
                     if ctrl and e.key == pygame.K_n: self.action_new()
                     if ctrl and e.key == pygame.K_z: self.action_undo()
                     if ctrl and e.key == pygame.K_y: self.action_redo()
+                    if ctrl and shift and e.key == pygame.K_o:
+                        self.action_open_project()
+                    if ctrl and shift and e.key == pygame.K_n:
+                        self.action_new_project()
                     if e.key == pygame.K_DELETE:
                         self.bp_editor.delete_selected()
             elif e.type == pygame.MOUSEBUTTONDOWN:
@@ -388,6 +501,15 @@ class EditorApp:
                 "Сохранить как" if self.dialog.mode == "save" else "Открыть",
                 self.dialog.files, mode=self.dialog.mode,
                 filename=self.dialog.filename)
+        if self.project_dialog["mode"]:
+            self.ui.file_picker(
+                self.screen,
+                pygame.Rect((self.win_w - 560) // 2,
+                            (self.win_h - 360) // 2, 560, 360),
+                "Открыть проект" if self.project_dialog["mode"] == "open_project"
+                else "Новый проект",
+                self.project_dialog["files"], mode="save",
+                filename=self.project_dialog["filename"])
         self.build_panel.draw(self.screen, self.ui)
         pygame.display.flip()
 
@@ -396,11 +518,10 @@ class EditorApp:
         if not sel or not sel.has("script"):
             return
         name = sel.get("script").blueprint
-        if not name:
+        if not name or not self.project_root:
             return
-        p = os.path.join(ROOT, "data", "blueprints", name + ".json")
+        p = os.path.join(self.project_root, "data", "blueprints", name + ".json")
         save_json(p, bp.to_dict())
-        # сбросить кэш компилятора
         for s in self.scene.systems:
             if s.name == "script":
                 s.invalidate(name)
@@ -419,7 +540,9 @@ class EditorApp:
 
     def _draw_status(self):
         pygame.draw.rect(self.screen, (28, 28, 32), self.rect_status)
-        self.screen.blit(self.skin.render(self.status, skin.TEXT_DIM),
+        proj = self.project.name() if self.project else "—"
+        text = f"{self.status}    |    Проект: {proj}"
+        self.screen.blit(self.skin.render(text, skin.TEXT_DIM),
                          (8, self.rect_status.y + 4))
 
     def _on_asset_pick(self, kind, path):

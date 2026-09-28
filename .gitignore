@@ -30,3 +30,7 @@ maze-horror/build
 *.zip
 *.log
 /*.sh
+
+# Сборка: логи и кеши
+last_build.log
+*.log
