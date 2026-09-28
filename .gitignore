@@ -6,3 +6,5 @@ __pycache__/
 *.zip
 apply_session_1.sh
 raycast_game.txt
+maze-horror/dist
+maze-horror/build
