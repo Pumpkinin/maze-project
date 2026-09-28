@@ -29,3 +29,4 @@ maze-horror/build
 *.bak
 *.zip
 *.log
+/*.sh
