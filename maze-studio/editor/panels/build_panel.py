@@ -99,6 +99,8 @@ class BuildPanel:
                 "--add-data", f"{os.path.join(horror, 'game')}{sep}game",
                 "--paths", studio,
                 "--paths", horror,
+                "--hidden-import", "pkg_resources._vendor.jaraco",
+                "--hidden-import", "pkg_resources._vendor.jaraco.text",
                 entry,
             ]
 
